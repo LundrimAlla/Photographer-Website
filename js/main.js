@@ -1,141 +1,144 @@
 $(document).ready(function () {
   $("#owl-example").owlCarousel({
-    items: 5, //10 items above 1000px browser width
-    itemsDesktop: [1600, 4], //5 items between 1000px and 901px
-    itemsDesktopSmall: [900, 4], // betweem 900px and 601px
-    itemsTablet: [600, 2], //2 items between 600 and 0
-    itemsMobile: false, // itemsMobile disabled - inherit from itemsTablet option);
+    items: 5, // 10 items above 1000px browser width
+    responsive: {
+      1600: { items: 4 }, // 4 items between 1600px and 1000px
+      900: { items: 4 },  // 4 items between 900px and 600px
+      600: { items: 2 }   // 2 items between 600px and 0
+    },
     lazyLoad: true,
-    navigation: false,
+    nav: false,  // "nav" is used instead of "navigation" in newer versions
   });
 
-  jQuery(".nav > li > a").click(function (e) {
+  $(".nav > li > a").on("click", function (e) {
     e.preventDefault();
-    jQuery.scrollTo(jQuery(this).attr("href"), 400, {
-      offset: -jQuery("#top").height(),
+    $.scrollTo($(this).attr("href"), 400, {
+      offset: -$("#top").height(),
       axis: "y",
     });
   });
 
   (function ($) {
-    var h = ($.scrollTo = function (a, b, c) {
-      $(window).scrollTo(a, b, c);
-    });
-    h.defaults = {
+    $.scrollTo = function (target, duration, options) {
+      $(window).scrollTo(target, duration, options);
+    };
+
+    $.scrollTo.defaults = {
       axis: "xy",
       duration: parseFloat($.fn.jquery) >= 1.3 ? 0 : 1,
       limit: true,
     };
-    h.window = function (a) {
-      return $(window)._scrollable();
-    };
+
     $.fn._scrollable = function () {
       return this.map(function () {
-        var a = this,
-          isWin =
-            !a.nodeName ||
-            $.inArray(a.nodeName.toLowerCase(), [
-              "iframe",
-              "#document",
-              "html",
-              "body",
-            ]) != -1;
-        if (!isWin) return a;
-        var b = (a.contentWindow || a).document || a.ownerDocument || a;
-        return /webkit/i.test(navigator.userAgent) ||
-          b.compatMode == "BackCompat"
-          ? b.body
-          : b.documentElement;
+        var elem = this,
+          isWin = !elem.nodeName || $.inArray(elem.nodeName.toLowerCase(), [
+            "iframe", "#document", "html", "body"
+          ]) !== -1;
+        if (!isWin) return elem;
+
+        var doc = (elem.contentWindow || elem).document || elem.ownerDocument || elem;
+        return /webkit/i.test(navigator.userAgent) || doc.compatMode === "BackCompat"
+          ? doc.body
+          : doc.documentElement;
       });
     };
-    $.fn.scrollTo = function (e, f, g) {
-      if (typeof f == "object") {
-        g = f;
-        f = 0;
+
+    $.fn.scrollTo = function (target, duration, options) {
+      if (typeof duration === "object") {
+        options = duration;
+        duration = 0;
       }
-      if (typeof g == "function") g = { onAfter: g };
-      if (e == "max") e = 9e9;
-      g = $.extend({}, h.defaults, g);
-      f = f || g.duration;
-      g.queue = g.queue && g.axis.length > 1;
-      if (g.queue) f /= 2;
-      g.offset = both(g.offset);
-      g.over = both(g.over);
-      return this._scrollable()
-        .each(function () {
-          if (e == null) return;
-          var d = this,
-            $elem = $(d),
-            targ = e,
-            toff,
-            attr = {},
-            win = $elem.is("html,body");
-          switch (typeof targ) {
-            case "number":
-            case "string":
-              if (/^([+-]=?)?\d+(\.\d+)?(px|%)?$/.test(targ)) {
-                targ = both(targ);
-                break;
-              }
-              targ = $(targ, this);
-              if (!targ.length) return;
-            case "object":
-              if (targ.is || targ.style) toff = (targ = $(targ)).offset();
+      if (typeof options === "function") options = { onAfter: options };
+      if (target === "max") target = 9e9;
+
+      options = $.extend({}, $.scrollTo.defaults, options);
+      duration = duration || options.duration;
+      options.queue = options.queue && options.axis.length > 1;
+
+      if (options.queue) duration /= 2;
+
+      options.offset = normalizeOption(options.offset);
+      options.over = normalizeOption(options.over);
+
+      return this._scrollable().each(function () {
+        var elem = this, $elem = $(elem),
+          targ = target, toff, attr = {}, win = $elem.is("html,body");
+
+        if (typeof targ === "number" || typeof targ === "string") {
+          if (/^([+-]=?)?\d+(\.\d+)?(px|%)?$/.test(targ)) {
+            targ = normalizeOption(targ);
+          } else {
+            targ = $(targ, this);
+            if (!targ.length) return;
           }
-          $.each(g.axis.split(""), function (i, a) {
-            var b = a == "x" ? "Left" : "Top",
-              pos = b.toLowerCase(),
-              key = "scroll" + b,
-              old = d[key],
-              max = h.max(d, a);
-            if (toff) {
-              attr[key] = toff[pos] + (win ? 0 : old - $elem.offset()[pos]);
-              if (g.margin) {
-                attr[key] -= parseInt(targ.css("margin" + b)) || 0;
-                attr[key] -= parseInt(targ.css("border" + b + "Width")) || 0;
-              }
-              attr[key] += g.offset[pos] || 0;
-              if (g.over[pos])
-                attr[key] +=
-                  targ[a == "x" ? "width" : "height"]() * g.over[pos];
-            } else {
-              var c = targ[pos];
-              attr[key] =
-                c.slice && c.slice(-1) == "%" ? (parseFloat(c) / 100) * max : c;
+        }
+
+        if (typeof targ === "object" && (targ.is || targ.style)) {
+          toff = targ.offset();
+        }
+
+        $.each(options.axis.split(""), function (i, axis) {
+          var prop = axis === "x" ? "Left" : "Top",
+            pos = prop.toLowerCase(),
+            key = "scroll" + prop,
+            old = elem[key],
+            max = $.scrollTo.max(elem, axis);
+
+          if (toff) {
+            attr[key] = toff[pos] + (win ? 0 : old - $elem.offset()[pos]);
+            if (options.margin) {
+              attr[key] -= parseInt(targ.css("margin" + prop)) || 0;
+              attr[key] -= parseInt(targ.css("border" + prop + "Width")) || 0;
             }
-            if (g.limit && /^\d+$/.test(attr[key]))
-              attr[key] = attr[key] <= 0 ? 0 : Math.min(attr[key], max);
-            if (!i && g.queue) {
-              if (old != attr[key]) animate(g.onAfterFirst);
-              delete attr[key];
+            attr[key] += options.offset[pos] || 0;
+            if (options.over[pos]) {
+              attr[key] += targ[axis === "x" ? "width" : "height"]() * options.over[pos];
             }
+          } else {
+            var offset = targ[pos];
+            attr[key] = offset.slice && offset.slice(-1) === "%" ?
+              (parseFloat(offset) / 100) * max : offset;
+          }
+
+          if (options.limit && /^\d+$/.test(attr[key])) {
+            attr[key] = Math.min(Math.max(attr[key], 0), max);
+          }
+
+          if (!i && options.queue) {
+            if (old !== attr[key]) animateScroll(options.onAfterFirst);
+            delete attr[key];
+          }
+        });
+
+        animateScroll(options.onAfter);
+
+        function animateScroll(callback) {
+          $elem.animate(attr, duration, options.easing, callback && function () {
+            callback.call(this, targ, options);
           });
-          animate(g.onAfter);
-          function animate(a) {
-            $elem.animate(
-              attr,
-              f,
-              g.easing,
-              a &&
-                function () {
-                  a.call(this, targ, g);
-                }
-            );
-          }
-        })
-        .end();
+        }
+      }).end();
     };
-    h.max = function (a, b) {
-      var c = b == "x" ? "Width" : "Height",
-        scroll = "scroll" + c;
-      if (!$(a).is("html,body")) return a[scroll] - $(a)[c.toLowerCase()]();
-      var d = "client" + c,
-        html = a.ownerDocument.documentElement,
-        body = a.ownerDocument.body;
-      return Math.max(html[scroll], body[scroll]) - Math.min(html[d], body[d]);
+
+    $.scrollTo.max = function (elem, axis) {
+      var dim = axis === "x" ? "Width" : "Height",
+        scroll = "scroll" + dim;
+
+      if (!$(elem).is("html,body")) {
+        return elem[scroll] - $(elem)[dim.toLowerCase()]();
+      }
+
+      var client = "client" + dim,
+        html = elem.ownerDocument.documentElement,
+        body = elem.ownerDocument.body;
+
+      return Math.max(html[scroll], body[scroll]) -
+        Math.min(html[client], body[client]);
     };
-    function both(a) {
-      return typeof a == "object" ? a : { top: a, left: a };
+
+    function normalizeOption(option) {
+      return typeof option === "object" ? option : { top: option, left: option };
     }
   })(jQuery);
 });
